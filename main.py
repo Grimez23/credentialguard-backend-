@@ -14,6 +14,7 @@ origins = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
     "https://credentialguard.vercel.app",  # Replace with your actual Vercel/Netlify domain
+    "https://3000-ipahdds43nead0dqlwouk-445dfc90.us2.manus.computer",  # Manus Frontend
     os.getenv("FRONTEND_URL"),     # Dynamic Production URL from environment variable
 ]
 
