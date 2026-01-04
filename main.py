@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.services.nppes import lookup_npi
+from services.nppes import lookup_npi
 import uvicorn
 import os
 
