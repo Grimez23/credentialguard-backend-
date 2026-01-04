@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from services.nppes import lookup_npi
 import uvicorn
 import os
@@ -29,6 +30,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# GLOBAL EXCEPTION HANDLERS - Ensure CORS headers on ALL error responses
+# This fixes the "Failed to fetch" error on 404s and 500s
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "error": True},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}", "error": True},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
+
 @app.get("/")
 def health_check():
     return {"status": "online", "system": "CredentialGuard Revenue Engine"}
@@ -45,13 +64,17 @@ async def get_provider(npi: str):
         Provider data including name, credentials, and risk status
     """
     if not npi or len(npi) != 10 or not npi.isdigit():
-        return {"error": "Invalid NPI format. Must be 10 digits."}
+        raise HTTPException(status_code=400, detail="Invalid NPI format. Must be 10 digits.")
     
     try:
         provider_data = await lookup_npi(npi)
+        if not provider_data or "error" in provider_data:
+            raise HTTPException(status_code=404, detail=f"NPI {npi} not found in CMS NPPES Registry")
         return provider_data
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"error": str(e), "npi": npi}
+        raise HTTPException(status_code=500, detail=f"Error looking up NPI: {str(e)}")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
