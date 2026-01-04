@@ -1,32 +1,60 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.middleware.base import BaseHTTPMiddleware
 from services.nppes import lookup_npi
 import uvicorn
 import os
 
 app = FastAPI(title="CredentialGuard API", version="1.0.0")
 
-# SECURITY: CORS Configuration - Allow all origins for API access
-# In production, restrict to specific domains
+# Custom middleware to force CORS headers on ALL responses
+class CORSMiddlewareForce(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Handle preflight requests
+        if request.method == "OPTIONS":
+            return JSONResponse(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                    "Access-Control-Max-Age": "600",
+                }
+            )
+        
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Expose-Headers"] = "*"
+        return response
+
+# Add custom CORS middleware FIRST (before everything else)
+app.add_middleware(CORSMiddlewareForce)
+
+# Also add standard CORS middleware for OPTIONS requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (can be restricted later)
-    allow_credentials=False,  # Must be False when allow_origins=["*"]
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],  # Expose all headers to frontend
-    max_age=600,  # Cache preflight requests for 10 minutes
+    expose_headers=["*"],
+    max_age=600,
 )
 
 # GLOBAL EXCEPTION HANDLERS - Ensure CORS headers on ALL error responses
-# This fixes the "Failed to fetch" error on 404s and 500s
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail, "error": True},
-        headers={"Access-Control-Allow-Origin": "*"}
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        }
     )
 
 @app.exception_handler(Exception)
@@ -34,7 +62,11 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"detail": f"Internal Server Error: {str(exc)}", "error": True},
-        headers={"Access-Control-Allow-Origin": "*"}
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        }
     )
 
 @app.get("/")
