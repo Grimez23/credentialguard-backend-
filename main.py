@@ -56,25 +56,24 @@ def health_check():
 async def get_provider(npi: str):
     """
     Lookup provider credentials from CMS NPPES Registry.
-    
-    Args:
-        npi: 10-digit National Provider Identifier
-        
-    Returns:
-        Provider data including name, credentials, and risk status
+    Always returns 200 OK. Check the error flag in response.
     """
     if not npi or len(npi) != 10 or not npi.isdigit():
-        raise HTTPException(status_code=400, detail="Invalid NPI format. Must be 10 digits.")
+        return {
+            "error": True,
+            "detail": "Invalid NPI format. Must be 10 digits.",
+            "npi": npi
+        }
     
     try:
         provider_data = await lookup_npi(npi)
-        if not provider_data or "error" in provider_data:
-            raise HTTPException(status_code=404, detail=f"NPI {npi} not found in CMS NPPES Registry")
         return provider_data
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error looking up NPI: {str(e)}")
+        return {
+            "error": True,
+            "detail": f"Error looking up NPI: {str(e)}",
+            "npi": npi
+        }
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

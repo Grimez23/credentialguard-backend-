@@ -17,21 +17,37 @@ async def lookup_npi(npi_number: str):
             # 10-second timeout to prevent hanging
             response = await client.get(url, params=params, timeout=10.0)
         except httpx.RequestError:
-            raise Exception("Connection to CMS Registry Failed")
+            # Return soft error instead of raising exception
+            return {
+                "error": True,
+                "detail": "Connection to CMS Registry Failed",
+                "npi": npi_number
+            }
 
     if response.status_code != 200:
-        raise Exception(f"CMS Registry Error: {response.status_code}")
+        # Return soft error instead of raising exception
+        return {
+            "error": True,
+            "detail": f"CMS Registry Error: {response.status_code}",
+            "npi": npi_number
+        }
         
     data = response.json()
     
     # Validation: Ensure results exist in the response
+    # Return soft error instead of raising exception
     if not data.get("results"):
-        raise Exception("NPI Not Found")
+        return {
+            "error": True,
+            "detail": "NPI Not Found in CMS Registry",
+            "npi": npi_number
+        }
         
     provider = data["results"][0]
     
     # Data Transformation: Clean messy government JSON into Dashboard-ready JSON
     return {
+        "error": False,
         "first_name": provider["basic"].get("first_name", ""),
         "last_name": provider["basic"].get("last_name", ""),
         "credential": provider["basic"].get("credential", "N/A"),
