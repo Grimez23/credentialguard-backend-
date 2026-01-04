@@ -7,27 +7,16 @@ import os
 
 app = FastAPI(title="CredentialGuard API", version="1.0.0")
 
-# SECURITY: CORS Configuration - Dynamic for Development and Production
-# Define allowed origins
-origins = [
-    "http://localhost:5173",      # Vite Local
-    "http://localhost:3000",      # React Local
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-    "https://credentialguard.vercel.app",  # Replace with your actual Vercel/Netlify domain
-    "https://3000-ipahdds43nead0dqlwouk-445dfc90.us2.manus.computer",  # Manus Frontend
-    os.getenv("FRONTEND_URL"),     # Dynamic Production URL from environment variable
-]
-
-# Filter out None values in case environment variable isn't set
-origins = [origin for origin in origins if origin]
-
+# SECURITY: CORS Configuration - Allow all origins for API access
+# In production, restrict to specific domains
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins (can be restricted later)
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Expose all headers to frontend
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
 # GLOBAL EXCEPTION HANDLERS - Ensure CORS headers on ALL error responses
